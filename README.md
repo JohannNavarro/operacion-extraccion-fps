@@ -22,3 +22,5 @@ Videojuego tridimensional de disparos en primera persona (First-Person Shooter) 
        ├── arma2.glb
        ├── zombi.glb
        └── textura_roca.jpg
+   
+link del juego: https://johannnavarro.github.io/operacion-extraccion-fps/
