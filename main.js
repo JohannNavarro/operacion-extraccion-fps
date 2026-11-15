@@ -11,7 +11,6 @@ scene.background = new THREE.Color(0x050505);
 scene.fog = new THREE.Fog(0x050505, 0, 60);
 
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-// ALTURA DEL JUGADOR ACTUALIZADA (A la altura del zombi)
 camera.position.set(0, 2.2, 0); 
 scene.add(camera);
 
@@ -39,6 +38,7 @@ const uiLevelDisplay = document.getElementById('level-display');
 
 function recibirDanioJugador() {
     const tiempoActual = performance.now();
+    // 1 segundo de invulnerabilidad entre golpes
     if (tiempoActual - ultimoDanioRecibido > 1000) { 
         saludJugador--;
         ultimoDanioRecibido = tiempoActual;
@@ -64,7 +64,6 @@ function recibirDanioJugador() {
 const textureLoader = new THREE.TextureLoader();
 const paredesBox3 = [];
 
-// --- PAREDES ---
 const materialPared = new THREE.MeshStandardMaterial({ color: 0x888888 }); 
 textureLoader.load('assets/textura_roca.jpg', (textura) => {
     textura.wrapS = THREE.RepeatWrapping; 
@@ -75,13 +74,11 @@ textureLoader.load('assets/textura_roca.jpg', (textura) => {
     materialPared.needsUpdate = true;
 });
 
-// --- SUELO (Color sólido verde oscuro, optimizado) ---
 const materialSuelo = new THREE.MeshStandardMaterial({ color: 0x1a4314 }); 
 const floor = new THREE.Mesh(new THREE.PlaneGeometry(200, 200), materialSuelo);
 floor.rotation.x = -Math.PI / 2;
 scene.add(floor);
 
-// --- ZONA DE EXTRACCIÓN ---
 const zonaExtraccion = new THREE.Mesh(
     new THREE.BoxGeometry(10, 0.5, 10), 
     new THREE.MeshStandardMaterial({ color: 0x00ff00, transparent: true, opacity: 0.5 })
@@ -131,10 +128,26 @@ function cargarArma(ruta, index, config) {
         camera.add(modelo);
     });
 }
-// Arma 1 grande
 cargarArma('assets/arma1.glb', 0, { pos: {x: 1.2, y: -0.8, z: -1.5}, escala: 6.0, rot: {x: 0, y: Math.PI, z: 0} }); 
-// Arma 2
 cargarArma('assets/arma2.glb', 1, { pos: {x: 1.2, y: -0.8, z: -1.5}, escala: 4.0, rot: {x: 0, y: Math.PI, z: 0} });
+
+// ==========================================
+// 4.5 CAJAS DE MUNICIÓN (POWER-UPS)
+// ==========================================
+const cajasMunicion = [];
+const materialCaja = new THREE.MeshStandardMaterial({ color: 0x00aaff }); 
+const geoCaja = new THREE.BoxGeometry(1, 1, 1);
+
+function crearCajaMunicion(x, z) {
+    const caja = new THREE.Mesh(geoCaja, materialCaja);
+    caja.position.set(x, 0.5, z); 
+    scene.add(caja);
+    const cajaBox3 = new THREE.Box3().setFromObject(caja);
+    cajasMunicion.push({ mesh: caja, box3: cajaBox3 });
+}
+crearCajaMunicion(15, -20);
+crearCajaMunicion(-30, -50);
+crearCajaMunicion(30, -70);
 
 // ==========================================
 // 5. ZOMBIS CLONADOS
@@ -165,13 +178,11 @@ loader.load('assets/zombi.glb', (gltf) => {
 
 function generarOleada(cantidad) {
     if (!zombieBaseScene) return; 
-
     zombisActivos.forEach(z => scene.remove(z.grupo));
     zombisActivos = [];
 
     for(let i = 0; i < cantidad; i++) {
         const modeloClonado = SkeletonUtils.clone(zombieBaseScene);
-        
         const rX = (Math.random() - 0.5) * 80;
         const rZ = (Math.random() * -80) - 10; 
         modeloClonado.position.set(rX, 0, rZ);
@@ -273,10 +284,11 @@ document.addEventListener('mousedown', (e) => {
 function avanzarNivel() {
     nivelActual++;
     uiLevelDisplay.innerText = `Nivel: ${nivelActual}`;
-    // Restablece la posición y la altura a 2.2
-    camera.position.set(0, 2.2, 0); 
-    velocity.set(0,0,0);
+    camera.position.set(0, 2.2, 0); velocity.set(0,0,0);
     generarOleada(zombisBase + (10 * (nivelActual - 1)));
+    
+    crearCajaMunicion(Math.random() * 40 - 20, Math.random() * -60 - 10);
+    crearCajaMunicion(Math.random() * 40 - 20, Math.random() * -60 - 10);
     
     municion[0].reserva = 120; municion[0].clip = 30;
     municion[1].reserva = 28;  municion[1].clip = 7;
@@ -313,20 +325,67 @@ function animate() {
 
         controls.moveRight(-velocity.x * delta); controls.moveForward(-velocity.z * delta);
 
-        // Aumentada la altura de la caja de colisión para coincidir con la nueva altura de cámara
         playerBox.setFromCenterAndSize(camera.position, new THREE.Vector3(1.0, 2.5, 1.0));
         for (let i = 0; i < paredesBox3.length; i++) {
             if (playerBox.intersectsBox(paredesBox3[i])) { camera.position.copy(posAnterior); break; }
         }
 
+        // --- RECOGER CAJAS DE MUNICIÓN ---
+        for (let i = cajasMunicion.length - 1; i >= 0; i--) {
+            const cajaObj = cajasMunicion[i];
+            cajaObj.mesh.rotation.y += 2.0 * delta; 
+            
+            if (playerBox.intersectsBox(cajaObj.box3)) {
+                municion[0].reserva += 60;
+                municion[1].reserva += 14;
+                actualizarUIMunicion();
+                scene.remove(cajaObj.mesh);
+                cajasMunicion.splice(i, 1);
+            }
+        }
+
+        // --- INTELIGENCIA ZOMBI ---
         const playerPos = camera.position;
+        const zombieBox = new THREE.Box3(); 
+
         zombisActivos.forEach((z) => {
             const dist = playerPos.distanceTo(z.grupo.position);
             if (dist < 25) z.activo = true; 
+            
             if (z.activo) {
+                const posX = z.grupo.position.x;
+                const posZ = z.grupo.position.z;
+
                 z.grupo.lookAt(playerPos.x, z.grupo.position.y, playerPos.z);
-                z.grupo.translateZ(3.0 * delta);
-                if (dist < 2.0) recibirDanioJugador();
+                z.grupo.translateZ(3.0 * delta); 
+
+                const nuevaPosX = z.grupo.position.x;
+                const nuevaPosZ = z.grupo.position.z;
+
+                z.grupo.position.set(posX, z.grupo.position.y, posZ);
+
+                // EJE X
+                z.grupo.position.x = nuevaPosX;
+                zombieBox.setFromCenterAndSize(z.grupo.position, new THREE.Vector3(1.2, 2.5, 1.2));
+                for (let i = 0; i < paredesBox3.length; i++) {
+                    if (zombieBox.intersectsBox(paredesBox3[i])) { 
+                        z.grupo.position.x = posX; 
+                        break; 
+                    }
+                }
+
+                // EJE Z
+                z.grupo.position.z = nuevaPosZ;
+                zombieBox.setFromCenterAndSize(z.grupo.position, new THREE.Vector3(1.2, 2.5, 1.2));
+                for (let i = 0; i < paredesBox3.length; i++) {
+                    if (zombieBox.intersectsBox(paredesBox3[i])) { 
+                        z.grupo.position.z = posZ; 
+                        break; 
+                    }
+                }
+                
+                // DISTANCIA DE ATAQUE CORREGIDA (COMPENSA ALTURA 2.2)
+                if (dist < 3.0) recibirDanioJugador();
             }
         });
 
