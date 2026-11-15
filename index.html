@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>GUERRA MUNDIAL Z - FPS 3D</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #000; font-family: 'Segoe UI', Tahoma, sans-serif; user-select: none; }
+        canvas { display: block; }
+        
+        #ui { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
+        #crosshair { position: absolute; top: 50%; left: 50%; width: 20px; height: 20px; transform: translate(-50%, -50%); color: lime; font-size: 24px; text-align: center; font-weight: bold; }
+        
+        #ammo-display { position: absolute; bottom: 30px; right: 40px; color: white; font-size: 28px; background: rgba(0,0,0,0.8); padding: 15px; border-radius: 8px; border: 2px solid #444; font-weight: bold; }
+        #level-display { position: absolute; top: 20px; right: 40px; color: #ffaa00; font-size: 32px; background: rgba(0,0,0,0.8); padding: 10px 20px; border-radius: 8px; font-weight: bold; }
+        
+        #health-container { position: absolute; bottom: 30px; left: 40px; width: 300px; background: rgba(0,0,0,0.8); border: 2px solid #555; border-radius: 8px; padding: 10px; }
+        #health-bar { width: 100%; height: 25px; background: #00ff00; transition: width 0.2s, background-color 0.2s; }
+        #health-text { color: white; font-size: 20px; font-weight: bold; margin-top: 5px; text-align: center; }
+
+        .screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; pointer-events: auto; backdrop-filter: blur(5px); }
+        #start-screen { background: rgba(0,0,0,0.85); }
+        #start-screen h1 { color: #ffaa00; font-size: 60px; margin-bottom: 5px; }
+        
+        #pause-screen { display: none; background: rgba(0,0,0,0.7); }
+        #pause-screen h1 { color: #ffffff; font-size: 50px; }
+        
+        #game-over-screen { display: none; background: rgba(150,0,0,0.9); }
+        #game-over-screen h1 { font-size: 80px; color: #fff; margin: 0; }
+        
+        #next-level-screen { display: none; background: rgba(0,50,150,0.9); }
+        #next-level-screen h1 { font-size: 60px; color: #00ffff; margin: 0; }
+        
+        button { padding: 15px 40px; font-size: 22px; cursor: pointer; background: #ffaa00; color: #000; border: none; font-weight: bold; margin-top: 30px; border-radius: 5px; }
+        button:hover { background: #ffcc00; transform: scale(1.05); }
+        
+        .instructions { color: #ccc; font-size: 18px; margin-top: 20px; text-align: center; line-height: 1.5; }
+    </style>
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+</head>
+<body>
+    <div id="ui">
+        <div id="crosshair">+</div>
+        <div id="level-display">Nivel: 1</div>
+        <div id="ammo-display">Arma 1 | 30 / 90</div>
+        <div id="health-container">
+            <div id="health-bar"></div>
+            <div id="health-text">Salud: 20 / 20</div>
+        </div>
+    </div>
+
+    <div id="start-screen" class="screen">
+        <h1>OPERACIÓN EXTRACCIÓN</h1>
+        <div class="instructions">WASD: Mover | Mouse: Mirar | Clic: Disparar | R: Recargar | 1-2: Armas | ESC: Pausa</div>
+        <button id="btn-start">INICIAR MISIÓN</button>
+    </div>
+
+    <div id="pause-screen" class="screen">
+        <h1>PAUSADO</h1>
+        <button id="btn-resume">CONTINUAR</button>
+    </div>
+
+    <div id="game-over-screen" class="screen">
+        <h1>GAME OVER</h1>
+        <p style="color:white; font-size: 24px;">La infección te alcanzó.</p>
+        <button onclick="location.reload()">REINICIAR DESDE NIVEL 1</button>
+    </div>
+
+    <div id="next-level-screen" class="screen">
+        <h1>¡EXTRACCIÓN EXITOSA!</h1>
+        <p style="color:white; font-size: 24px;" id="next-level-text">Preparando siguiente nivel...</p>
+        <button id="btn-next-level">AVANZAR AL SIGUIENTE NIVEL</button>
+    </div>
+
+    <script type="module" src="./main.js"></script>
+</body>
+</html>
